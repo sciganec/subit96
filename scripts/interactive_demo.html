@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <title>SUBIT-96 Interactive Demo</title>
 <style>
-  body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+  body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
   h1 { font-size: 24px; }
   select { margin: 5px; padding: 5px; }
   button { padding: 5px 10px; margin: 5px; }
   #result { margin-top: 20px; font-weight: bold; }
+  canvas { border: 1px solid #aaa; margin-top: 20px; }
 </style>
 </head>
 <body>
@@ -32,28 +33,35 @@
 <button onclick="compute()">Compute x ⊕ y</button>
 
 <div id="result"></div>
+<canvas id="cube" width="600" height="400"></canvas>
 
 <script>
-// Define elements
-const WHO_list = ["ME","WE","YOU⁺","YOU⁻","THEY₀","THEY₄"];
+// ======================
+// SUBIT-96 definitions
+// ======================
+
+// ASCII-friendly internal labels
+const WHO_list = ["ME","WE","YOU_PLUS","YOU_MINUS","THEY_0","THEY_4"];
+const WHO_labels = ["ME","WE","YOU⁺","YOU⁻","THEY₀","THEY₄"];
 const WHERE_list = ["EAST","SOUTH","WEST","NORTH"];
 const WHEN_list = ["SPRING","SUMMER","AUTUMN","WINTER"];
 
 // Valences
-const V_WHO = {ME:1, WE:2, "YOU⁺":1, "YOU⁻":-1, THEY₀:0, THEY₄:4};
+const V_WHO = {ME:1, WE:2, YOU_PLUS:1, YOU_MINUS:-1, THEY_0:0, THEY_4:4};
 const V_WHERE = {EAST:3, SOUTH:-2, WEST:2, NORTH:0};
 const V_WHEN = {SPRING:3, SUMMER:1, AUTUMN:-1, WINTER:0};
 
-// Component tables (⊗)
+// WHO table ⊗
 const WHO_table = {
-  "ME": {ME:"WE", WE:"THEY₄", "YOU⁺":"YOU⁺", "YOU⁻":"YOU⁻", THEY₀:"ME", THEY₄:"THEY₄"},
-  "WE": {ME:"THEY₄", WE:"THEY₄", "YOU⁺":"THEY₄", "YOU⁻":"THEY₄", THEY₀:"WE", THEY₄:"THEY₄"},
-  "YOU⁺": {ME:"YOU⁺", WE:"THEY₄", "YOU⁺":"THEY₀", "YOU⁻":"THEY₀", THEY₀:"YOU⁺", THEY₄:"THEY₄"},
-  "YOU⁻": {ME:"YOU⁻", WE:"THEY₄", "YOU⁺":"THEY₀", "YOU⁻":"THEY₀", THEY₀:"YOU⁻", THEY₄:"THEY₄"},
-  "THEY₀": {ME:"ME", WE:"WE", "YOU⁺":"YOU⁺", "YOU⁻":"YOU⁻", THEY₀:"THEY₀", THEY₄:"THEY₄"},
-  "THEY₄": {ME:"THEY₄", WE:"THEY₄", "YOU⁺":"THEY₄", "YOU⁻":"THEY₄", THEY₀:"THEY₄", THEY₄:"THEY₄"}
+  "ME": {"ME":"WE", "WE":"THEY_4", "YOU_PLUS":"YOU_PLUS", "YOU_MINUS":"YOU_MINUS", "THEY_0":"ME", "THEY_4":"THEY_4"},
+  "WE": {"ME":"THEY_4", "WE":"THEY_4", "YOU_PLUS":"THEY_4", "YOU_MINUS":"THEY_4", "THEY_0":"WE", "THEY_4":"THEY_4"},
+  "YOU_PLUS": {"ME":"YOU_PLUS","WE":"THEY_4","YOU_PLUS":"THEY_0","YOU_MINUS":"THEY_0","THEY_0":"YOU_PLUS","THEY_4":"THEY_4"},
+  "YOU_MINUS": {"ME":"YOU_MINUS","WE":"THEY_4","YOU_PLUS":"THEY_0","YOU_MINUS":"THEY_0","THEY_0":"YOU_MINUS","THEY_4":"THEY_4"},
+  "THEY_0": {"ME":"ME","WE":"WE","YOU_PLUS":"YOU_PLUS","YOU_MINUS":"YOU_MINUS","THEY_0":"THEY_0","THEY_4":"THEY_4"},
+  "THEY_4": {"ME":"THEY_4","WE":"THEY_4","YOU_PLUS":"THEY_4","YOU_MINUS":"THEY_4","THEY_0":"THEY_4","THEY_4":"THEY_4"}
 };
 
+// WHERE table ⊗
 const WHERE_table = {
   EAST:{EAST:"EAST", SOUTH:"SOUTH", WEST:"NORTH", NORTH:"EAST"},
   SOUTH:{EAST:"SOUTH", SOUTH:"SOUTH", WEST:"SOUTH", NORTH:"SOUTH"},
@@ -61,6 +69,7 @@ const WHERE_table = {
   NORTH:{EAST:"EAST", SOUTH:"SOUTH", WEST:"WEST", NORTH:"NORTH"}
 };
 
+// WHEN table ⊗
 const WHEN_table = {
   SPRING:{SPRING:"SUMMER", SUMMER:"SUMMER", AUTUMN:"SPRING", WINTER:"SPRING"},
   SUMMER:{SPRING:"SUMMER", SUMMER:"AUTUMN", AUTUMN:"AUTUMN", WINTER:"SUMMER"},
@@ -69,21 +78,26 @@ const WHEN_table = {
 };
 
 // Populate dropdowns
-function populate(selectId, list) {
+function populate(selectId, list, labels) {
   const sel = document.getElementById(selectId);
-  list.forEach(e => {
+  list.forEach((v,i) => {
     const option = document.createElement("option");
-    option.value = e;
-    option.textContent = e;
+    option.value = v;
+    option.textContent = labels ? labels[i] : v;
     sel.appendChild(option);
   });
 }
 
-// Populate all selects
-populate("x_who", WHO_list); populate("x_where", WHERE_list); populate("x_when", WHEN_list);
-populate("y_who", WHO_list); populate("y_where", WHERE_list); populate("y_when", WHEN_list);
+populate("x_who", WHO_list, WHO_labels);
+populate("x_where", WHERE_list);
+populate("x_when", WHEN_list);
+populate("y_who", WHO_list, WHO_labels);
+populate("y_where", WHERE_list);
+populate("y_when", WHEN_list);
 
-// Compute ⊕ and V
+// ======================
+// Compute function
+// ======================
 function compute() {
   const x = {
     who: document.getElementById("x_who").value,
@@ -105,7 +119,52 @@ function compute() {
   const valence = V_WHO[result.who] + V_WHERE[result.where] + V_WHEN[result.when];
 
   document.getElementById("result").textContent =
-    `x ⊕ y = (${result.who}, ${result.where}, ${result.when}) | V = ${valence}`;
+    `x ⊕ y = (${result.who.replace("_PLUS","⁺").replace("_MINUS","⁻").replace("_0","₀").replace("_4","₄")}, ${result.where}, ${result.when}) | V = ${valence}`;
+
+  drawCube(result);
+}
+
+// ======================
+// 3D Cube Visualization
+// ======================
+const canvas = document.getElementById("cube");
+const ctx = canvas.getContext("2d");
+
+function drawCube(highlight) {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cellSize = 40;
+  const offsetX = 50;
+  const offsetY = 50;
+
+  // Map valence to color
+  function color(val) {
+    if(val < 0) return `rgba(255,0,0,${0.5 + 0.05*val})`;
+    if(val == 0) return "rgba(200,200,200,0.5)";
+    return `rgba(0,128,255,${0.3 + 0.1*val})`;
+  }
+
+  // Loop over WHO × WHERE × WHEN (6×4×4)
+  for(let i=0;i<WHO_list.length;i++){
+    for(let j=0;j<WHERE_list.length;j++){
+      for(let k=0;k<WHEN_list.length;k++){
+        const w = WHO_list[i], r=WHERE_list[j], t=WHEN_list[k];
+        const x = offsetX + j*cellSize + i*cellSize*0.5;
+        const y = offsetY + k*cellSize + i*cellSize*0.5;
+
+        const v = V_WHO[w] + V_WHERE[r] + V_WHEN[t];
+
+        ctx.fillStyle = color(v);
+        ctx.fillRect(x,y,cellSize,cellSize);
+
+        // Highlight selected
+        if(w==highlight.who && r==highlight.where && t==highlight.when){
+          ctx.strokeStyle = "gold";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x,y,cellSize,cellSize);
+        }
+      }
+    }
+  }
 }
 </script>
 

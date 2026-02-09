@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SUBIT-96 Interactive Demo</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+  h1 { font-size: 24px; }
+  select { margin: 5px; padding: 5px; }
+  button { padding: 5px 10px; margin: 5px; }
+  #result { margin-top: 20px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>SUBIT-96 Interactive Demo</h1>
+
+<div>
+  <h3>First element (x)</h3>
+  WHO: <select id="x_who"></select>
+  WHERE: <select id="x_where"></select>
+  WHEN: <select id="x_when"></select>
+</div>
+
+<div>
+  <h3>Second element (y)</h3>
+  WHO: <select id="y_who"></select>
+  WHERE: <select id="y_where"></select>
+  WHEN: <select id="y_when"></select>
+</div>
+
+<button onclick="compute()">Compute x ⊕ y</button>
+
+<div id="result"></div>
+
+<script>
+// Define elements
+const WHO_list = ["ME","WE","YOU⁺","YOU⁻","THEY₀","THEY₄"];
+const WHERE_list = ["EAST","SOUTH","WEST","NORTH"];
+const WHEN_list = ["SPRING","SUMMER","AUTUMN","WINTER"];
+
+// Valences
+const V_WHO = {ME:1, WE:2, "YOU⁺":1, "YOU⁻":-1, THEY₀:0, THEY₄:4};
+const V_WHERE = {EAST:3, SOUTH:-2, WEST:2, NORTH:0};
+const V_WHEN = {SPRING:3, SUMMER:1, AUTUMN:-1, WINTER:0};
+
+// Component tables (⊗)
+const WHO_table = {
+  "ME": {ME:"WE", WE:"THEY₄", "YOU⁺":"YOU⁺", "YOU⁻":"YOU⁻", THEY₀:"ME", THEY₄:"THEY₄"},
+  "WE": {ME:"THEY₄", WE:"THEY₄", "YOU⁺":"THEY₄", "YOU⁻":"THEY₄", THEY₀:"WE", THEY₄:"THEY₄"},
+  "YOU⁺": {ME:"YOU⁺", WE:"THEY₄", "YOU⁺":"THEY₀", "YOU⁻":"THEY₀", THEY₀:"YOU⁺", THEY₄:"THEY₄"},
+  "YOU⁻": {ME:"YOU⁻", WE:"THEY₄", "YOU⁺":"THEY₀", "YOU⁻":"THEY₀", THEY₀:"YOU⁻", THEY₄:"THEY₄"},
+  "THEY₀": {ME:"ME", WE:"WE", "YOU⁺":"YOU⁺", "YOU⁻":"YOU⁻", THEY₀:"THEY₀", THEY₄:"THEY₄"},
+  "THEY₄": {ME:"THEY₄", WE:"THEY₄", "YOU⁺":"THEY₄", "YOU⁻":"THEY₄", THEY₀:"THEY₄", THEY₄:"THEY₄"}
+};
+
+const WHERE_table = {
+  EAST:{EAST:"EAST", SOUTH:"SOUTH", WEST:"NORTH", NORTH:"EAST"},
+  SOUTH:{EAST:"SOUTH", SOUTH:"SOUTH", WEST:"SOUTH", NORTH:"SOUTH"},
+  WEST:{EAST:"NORTH", SOUTH:"SOUTH", WEST:"WEST", NORTH:"WEST"},
+  NORTH:{EAST:"EAST", SOUTH:"SOUTH", WEST:"WEST", NORTH:"NORTH"}
+};
+
+const WHEN_table = {
+  SPRING:{SPRING:"SUMMER", SUMMER:"SUMMER", AUTUMN:"SPRING", WINTER:"SPRING"},
+  SUMMER:{SPRING:"SUMMER", SUMMER:"AUTUMN", AUTUMN:"AUTUMN", WINTER:"SUMMER"},
+  AUTUMN:{SPRING:"SPRING", SUMMER:"AUTUMN", AUTUMN:"WINTER", WINTER:"AUTUMN"},
+  WINTER:{SPRING:"SPRING", SUMMER:"SUMMER", AUTUMN:"AUTUMN", WINTER:"WINTER"}
+};
+
+// Populate dropdowns
+function populate(selectId, list) {
+  const sel = document.getElementById(selectId);
+  list.forEach(e => {
+    const option = document.createElement("option");
+    option.value = e;
+    option.textContent = e;
+    sel.appendChild(option);
+  });
+}
+
+// Populate all selects
+populate("x_who", WHO_list); populate("x_where", WHERE_list); populate("x_when", WHEN_list);
+populate("y_who", WHO_list); populate("y_where", WHERE_list); populate("y_when", WHEN_list);
+
+// Compute ⊕ and V
+function compute() {
+  const x = {
+    who: document.getElementById("x_who").value,
+    where: document.getElementById("x_where").value,
+    when: document.getElementById("x_when").value
+  };
+  const y = {
+    who: document.getElementById("y_who").value,
+    where: document.getElementById("y_where").value,
+    when: document.getElementById("y_when").value
+  };
+
+  const result = {
+    who: WHO_table[x.who][y.who],
+    where: WHERE_table[x.where][y.where],
+    when: WHEN_table[x.when][y.when]
+  };
+
+  const valence = V_WHO[result.who] + V_WHERE[result.where] + V_WHEN[result.when];
+
+  document.getElementById("result").textContent =
+    `x ⊕ y = (${result.who}, ${result.where}, ${result.when}) | V = ${valence}`;
+}
+</script>
+
+</body>
+</html>
